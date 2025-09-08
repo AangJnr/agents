@@ -2,7 +2,7 @@
 
 import { ChevronRight, Info } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { ExpandableJsonEditor } from '@/components/form/expandable-json-editor';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -22,6 +22,8 @@ import { useProjectData } from '@/hooks/use-project-data';
 import { ModelSelector } from '../nodes/model-selector';
 import { ContextConfigForm } from './context-config';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InputField, TextareaField } from '../nodes/form-fields';
+import { ExpandableTextArea } from '../nodes/expandable-text-area';
 
 function MetadataEditor() {
   const params = useParams();
@@ -46,9 +48,7 @@ function MetadataEditor() {
 
   // Local state for status components JSON to prevent input field from being cleared on invalid JSON
   const [statusComponentsJson, setStatusComponentsJson] = useState(
-    statusUpdates?.statusComponents
-      ? JSON.stringify(statusUpdates.statusComponents, null, 2)
-      : ''
+    statusUpdates?.statusComponents ? JSON.stringify(statusUpdates.statusComponents, null, 2) : ''
   );
 
   // Use ref to store current statusUpdates to avoid stale closures
@@ -59,8 +59,8 @@ function MetadataEditor() {
     const newValue = statusUpdates?.statusComponents
       ? JSON.stringify(statusUpdates.statusComponents, null, 2)
       : '';
-    
-    setStatusComponentsJson(prevValue => {
+
+    setStatusComponentsJson((prevValue) => {
       if (prevValue !== newValue) {
         try {
           if (prevValue.trim()) {
@@ -72,7 +72,7 @@ function MetadataEditor() {
         } catch (e) {
           return prevValue;
         }
-        
+
         return newValue;
       }
       return prevValue;
@@ -99,45 +99,43 @@ function MetadataEditor() {
           <CopyableSingleLineCode code={graphUrl} />
         </div>
       )}
+      <InputField
+        id="id"
+        name="id"
+        label="Id"
+        value={id || ''}
+        onChange={(e) => updateMetadata('id', e.target.value)}
+        disabled={!!graphId} // only editable if no graphId is set (i.e. new graph)
+        placeholder="my-graph"
+        description={
+          !graphId
+            ? 'Choose a unique identifier for this graph. Using an existing id will replace that graph.'
+            : undefined
+        }
+      />
+      <InputField
+        id="name"
+        name="name"
+        label="Name"
+        value={name}
+        onChange={(e) => updateMetadata('name', e.target.value)}
+        placeholder="My graph"
+        isRequired
+      />
+      <TextareaField
+        id="description"
+        name="description"
+        label="Description"
+        value={description}
+        onChange={(e) => updateMetadata('description', e.target.value)}
+        placeholder="This graph is used to..."
+        className="max-h-96"
+      />
       <div className="space-y-2">
-        <Label htmlFor="id">Id</Label>
-        <Input
-          id="id"
-          value={id || ''}
-          onChange={(e) => updateMetadata('id', e.target.value)}
-          disabled={!!graphId} // only editable if no graphId is set (i.e. new graph)
-          placeholder="my-graph"
-        />
-        {!graphId && (
-          <p className="text-sm text-muted-foreground">
-            Choose a unique identifier for this graph. Using an existing id will replace that graph.
-          </p>
-        )}
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
-          value={name}
-          onChange={(e) => updateMetadata('name', e.target.value)}
-          placeholder="My graph"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => updateMetadata('description', e.target.value)}
-          placeholder="This graph is used to..."
-          className="max-h-96"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="graph-prompt">Graph Prompt</Label>
-        <Textarea
+        <ExpandableTextArea
           id="graph-prompt"
+          name="graph-prompt"
+          label="Graph Prompt"
           value={graphPrompt || ''}
           onChange={(e) => updateMetadata('graphPrompt', e.target.value)}
           placeholder="System-level instructions for this graph..."
@@ -616,19 +614,22 @@ function MetadataEditor() {
                 <ExpandableJsonEditor
                   name="status-components"
                   label="Status Components Configuration"
-                  onChange={useCallback((value) => {
-                    setStatusComponentsJson(value);
-                    
-                    try {
-                      const parsedComponents = value ? JSON.parse(value) : undefined;
-                      updateMetadata('statusUpdates', {
-                        ...(statusUpdatesRef.current || {}),
-                        statusComponents: parsedComponents,
-                      });
-                    } catch (e) {
-                      // Invalid JSON - don't update metadata
-                    }
-                  }, [updateMetadata])}
+                  onChange={useCallback(
+                    (value) => {
+                      setStatusComponentsJson(value);
+
+                      try {
+                        const parsedComponents = value ? JSON.parse(value) : undefined;
+                        updateMetadata('statusUpdates', {
+                          ...(statusUpdatesRef.current || {}),
+                          statusComponents: parsedComponents,
+                        });
+                      } catch (e) {
+                        // Invalid JSON - don't update metadata
+                      }
+                    },
+                    [updateMetadata]
+                  )}
                   value={statusComponentsJson}
                   placeholder={`[
   {
