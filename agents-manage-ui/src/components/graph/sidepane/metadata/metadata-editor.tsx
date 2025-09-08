@@ -2,7 +2,7 @@
 
 import { ChevronRight, Info } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { ExpandableJsonEditor } from '@/components/form/expandable-json-editor';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -43,6 +43,41 @@ function MetadataEditor() {
     },
     [setMetadata, markUnsaved]
   );
+
+  // Local state for status components JSON to prevent input field from being cleared on invalid JSON
+  const [statusComponentsJson, setStatusComponentsJson] = useState(
+    statusUpdates?.statusComponents
+      ? JSON.stringify(statusUpdates.statusComponents, null, 2)
+      : ''
+  );
+
+  // Use ref to store current statusUpdates to avoid stale closures
+  const statusUpdatesRef = useRef(statusUpdates);
+  statusUpdatesRef.current = statusUpdates;
+
+  useEffect(() => {
+    const newValue = statusUpdates?.statusComponents
+      ? JSON.stringify(statusUpdates.statusComponents, null, 2)
+      : '';
+    
+    setStatusComponentsJson(prevValue => {
+      if (prevValue !== newValue) {
+        try {
+          if (prevValue.trim()) {
+            const prevParsed = JSON.parse(prevValue);
+            if (JSON.stringify(prevParsed) === JSON.stringify(statusUpdates?.statusComponents)) {
+              return prevValue;
+            }
+          }
+        } catch (e) {
+          return prevValue;
+        }
+        
+        return newValue;
+      }
+      return prevValue;
+    });
+  }, [statusUpdates?.statusComponents]);
 
   return (
     <div className="space-y-8">
@@ -581,23 +616,20 @@ function MetadataEditor() {
                 <ExpandableJsonEditor
                   name="status-components"
                   label="Status Components Configuration"
-                  onChange={(value) => {
-                    let parsedComponents;
+                  onChange={useCallback((value) => {
+                    setStatusComponentsJson(value);
+                    
                     try {
-                      parsedComponents = value ? JSON.parse(value) : undefined;
+                      const parsedComponents = value ? JSON.parse(value) : undefined;
+                      updateMetadata('statusUpdates', {
+                        ...(statusUpdatesRef.current || {}),
+                        statusComponents: parsedComponents,
+                      });
                     } catch (e) {
-                      parsedComponents = undefined;
+                      // Invalid JSON - don't update metadata
                     }
-                    updateMetadata('statusUpdates', {
-                      ...(statusUpdates || {}),
-                      statusComponents: parsedComponents,
-                    });
-                  }}
-                  value={
-                    statusUpdates?.statusComponents
-                      ? JSON.stringify(statusUpdates.statusComponents, null, 2)
-                      : ''
-                  }
+                  }, [updateMetadata])}
+                  value={statusComponentsJson}
                   placeholder={`[
   {
     "id": "tool_call_summary",
